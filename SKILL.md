@@ -12,10 +12,10 @@ they arrive at the code already knowing what problem it solves, what it does, wh
 it was built this way, and what could break. It is the opposite of a code review —
 it does not hunt for findings or rate anything. It explains.
 
-The gold-standard example lives in `reference/example-brief.md`. Read it before you
-start. It sets the bar: prose, not bullets-for-their-own-sake; every design claim
-grounded in a concrete `file.py:line`; the *why* and the *rejected alternative*
-made explicit; open decisions named as open; and an epic-across-PRs mapped PR by PR.
+Read `README.md` before you start. It sets the bar: prose, not bullets-for-their-own-sake;
+every design claim grounded in a concrete `file.py:line`; the *why* and the *rejected
+alternative* made explicit; open decisions named as open; and an epic-across-PRs mapped
+PR by PR.
 
 ## What makes a brief good (the whole point)
 
@@ -27,8 +27,8 @@ made explicit; open decisions named as open; and an epic-across-PRs mapped PR by
    wins and you say so.
 2. **Explains why, not just what.** The diff already shows *what* changed. The brief
    explains *why this shape* — and, crucially, **why not the obvious alternative**.
-   The example's "Key design, and it is deliberately not the design of playbook"
-   section is the template: name the alternative, say why it was rejected.
+   Include a **"Key design"** section that names the rejected alternative and says
+   why it was rejected.
 3. **Names the open decisions.** Real work has undecided parts ("tenancy is on
    stand by, Diogo to decide"). A brief that pretends everything is settled misleads
    the reviewer. Surface them.
@@ -37,7 +37,7 @@ made explicit; open decisions named as open; and an epic-across-PRs mapped PR by
    risk concentrated? This is what tells a reviewer where to spend their attention.
 5. **Adapts to the unit of work.** A single self-contained PR gets one narrative. An
    epic split across PRs (PR 1 the table, PR 2 the job, ...) gets a per-PR breakdown
-   with each PR's files and its own blast radius — see the example.
+   with each PR's files and its own blast radius — see README.md.
 6. **Plain language, English.** Reviewers across the team read this. No machine-report
    tone, no em dashes, no jargon the ticket didn't already use. Write it the way you'd
    explain the change to a teammate at a whiteboard.
@@ -96,8 +96,8 @@ Then:
 - Get the change surface: `git diff --stat master...origin/$BRANCH` (or `gh pr diff $PR --name-only`).
 - For every new/renamed symbol, table, enum, node, endpoint — **open the full file**,
   not just the diff hunk, and trace it: who produces it, who reads it, what the old
-  behaviour was. The example's citations (`playbook_dao.py:24`, `device_grouper.py:21`)
-  come from reading those files, not from the diff.
+  behaviour was. Citations like `playbook_dao.py:24` come from reading those files,
+  not from the diff.
 - Confirm each claim in the PR/ticket description against the code. Note disagreements.
 - For an epic, map each PR to its files and its purpose (`gh pr diff --name-only`).
 
@@ -107,9 +107,9 @@ Capture the concrete `file:line` anchors as you go — you will cite them in the
 
 Write `pr_brief_<TICKET>.md` (or `pr_brief_<BRANCH>.md` when there is no ticket) to
 the repo root — pasteable into the PR description or a Jira comment, renders on GitHub.
-Structure, following the example — omit any section that does not apply:
+Structure, following README.md — omit any section that does not apply:
 
-- **Title**: `TICKET — <one line: what it does and why>` (mirror the example's header).
+- **Title**: `TICKET — <one line: what it does and why>`.
 - **Problem**: 2-4 sentences. The state of the world today and why it's inadequate.
   Ground it: cite the code that has the limitation.
 - **Fix**: the high-level shape of the solution in plain prose.
@@ -125,11 +125,11 @@ Structure, following the example — omit any section that does not apply:
 - **Blast radius**: what this touches, which existing behaviours change, the scale /
   fan-out, and where the risk is concentrated. Be specific and quantify when you can.
 - **PR breakdown** (only for an epic): one subsection per PR — its ticket, its files
-  (with a phrase on each), and what it changes. See the example's `PR 1 … PR 4`.
+  (with a phrase on each), and what it changes.
 
 Rules: prose over bullet-dumps; every design claim carries a `file:line`; English;
 no em dashes; no invented facts — if you didn't verify it, don't assert it (say
-"per the ticket" or omit). Match the example's register.
+"per the ticket" or omit). Match the register in README.md.
 
 Clean up the worktree.
 
