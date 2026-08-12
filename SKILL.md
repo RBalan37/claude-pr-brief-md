@@ -1,6 +1,6 @@
 ---
 name: pr-brief
-description: Produce a reviewer-facing brief for a PR, branch, or Jira ticket — a plain-language document that explains the problem, the fix, the key design decisions (with their rejected alternatives), and the blast radius, so a reviewer understands the change before reading a single line of the diff. Every claim is grounded in the actual branch code (file:line), not just the diff or the PR description. Adapts to a single PR or an epic split across several PRs. Writes a markdown file (pasteable into the PR description or a Jira comment) and always renders it into a self-contained HTML that it opens in the browser. Use when asked to "brief", "write up", "explain", or "summarize" a PR/branch/ticket for reviewers. NOT a code review — it explains, it does not judge; use pr-review-html for findings.
+description: Produce a short, direct, reviewer-facing brief for a PR, branch, or Jira ticket — a plain-language document that explains the problem, the fix, the key design decisions (with their rejected alternatives), and whether it touches production, so a reviewer understands the change before reading a single line of the diff. Every claim is grounded in the actual branch code (file:line) and in how the change fits into the existing codebase, not just the diff or the PR description. Adapts to a single PR, an epic split across several PRs, or a broader initiative/project brief (goal, feedback loop, setup, impact). Writes a markdown file (pasteable into the PR description or a Jira comment) and, when a visual (diagram, schema, HTML reading view) would genuinely help, renders one too. Use when asked to "brief", "write up", "explain", or "summarize" a PR/branch/ticket/initiative for reviewers or the team. NOT a code review — it explains, it does not judge; use pr-review-html for findings.
 allowed-tools: Bash, Read, Write, Grep, Glob, WebFetch, mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql
 argument-hint: "[Jira key | PR number/URL | nothing = current branch]"
 ---
@@ -12,10 +12,25 @@ they arrive at the code already knowing what problem it solves, what it does, wh
 it was built this way, and what could break. It is the opposite of a code review —
 it does not hunt for findings or rate anything. It explains.
 
-Read `README.md` before you start. It sets the bar: prose, not bullets-for-their-own-sake;
-every design claim grounded in a concrete `file.py:line`; the *why* and the *rejected
-alternative* made explicit; open decisions named as open; and an epic-across-PRs mapped
-PR by PR.
+Keep it short, direct, and easy to skim. The goal is to get the ideas across cleanly,
+not to demonstrate thoroughness — cut anything a reviewer wouldn't need. Use bullets
+for lists of concrete things (setup steps, files touched, open questions) and short
+prose only where an explanation genuinely needs a sentence or two, e.g. the *why*
+behind a decision. Favor a "TLDR" or "Goal" line up top over a long lead-in.
+
+Two gold-standard examples live in `reference/`:
+- `example-brief.md` — a single PR / bug fix, grounded in `file.py:line` citations.
+  Use this shape for a normal PR or an epic split across several PRs (per-PR
+  breakdown, one blast radius per PR).
+- `example-brief-initiative.md` — a broader initiative / project brief (goal, TLDR,
+  process, setup tasks, impact levels, challenges). Use this shape when the ticket
+  describes a body of work or a process change rather than a single, already-coded
+  change.
+
+Read whichever is the closer match before you start. Both share the same non-negotiables:
+every claim grounded in the actual code or ticket (not invented), the *why* and the
+*rejected alternative* made explicit for non-obvious decisions, open questions named
+as open, and — critically — an explicit read on whether the change touches production.
 
 ## What makes a brief good (the whole point)
 
@@ -27,8 +42,8 @@ PR by PR.
    wins and you say so.
 2. **Explains why, not just what.** The diff already shows *what* changed. The brief
    explains *why this shape* — and, crucially, **why not the obvious alternative**.
-   Include a **"Key design"** section that names the rejected alternative and says
-   why it was rejected.
+   The example's "Key design, and it is deliberately not the design of playbook"
+   section is the template: name the alternative, say why it was rejected.
 3. **Names the open decisions.** Real work has undecided parts ("tenancy is on
    stand by, Diogo to decide"). A brief that pretends everything is settled misleads
    the reviewer. Surface them.
@@ -37,10 +52,17 @@ PR by PR.
    risk concentrated? This is what tells a reviewer where to spend their attention.
 5. **Adapts to the unit of work.** A single self-contained PR gets one narrative. An
    epic split across PRs (PR 1 the table, PR 2 the job, ...) gets a per-PR breakdown
-   with each PR's files and its own blast radius — see README.md.
-6. **Plain language, English.** Reviewers across the team read this. No machine-report
-   tone, no em dashes, no jargon the ticket didn't already use. Write it the way you'd
-   explain the change to a teammate at a whiteboard.
+   with each PR's files and its own blast radius — see `example-brief.md`. A broader
+   initiative gets goal/process/impact framing instead — see `example-brief-initiative.md`.
+6. **Says plainly whether it touches production.** This is not optional. Read the
+   change against the existing codebase and state, explicitly, a production impact
+   level and a development impact level (see `example-brief-initiative.md`'s
+   "Impacts" section for the format), with the reasoning tied to which code paths
+   are actually touched — not a guess from the ticket title.
+7. **Plain language, English.** Reviewers across the team read this. No machine-report
+   tone, no em dashes, no jargon the ticket didn't already use. Short and direct beats
+   comprehensive. Write it the way you'd explain the change to a teammate at a
+   whiteboard, not a report you'd file.
 
 ## Workflow
 
@@ -96,10 +118,10 @@ Then:
 - Get the change surface: `git diff --stat master...origin/$BRANCH` (or `gh pr diff $PR --name-only`).
 - For every new/renamed symbol, table, enum, node, endpoint — **open the full file**,
   not just the diff hunk, and trace it: who produces it, who reads it, what the old
-  behaviour was. Citations like `playbook_dao.py:24` come from reading those files,
-  not from the diff.
+  behaviour was. The example's citations (`playbook_dao.py:24`, `device_grouper.py:21`)
+  come from reading those files, not from the diff.
 - Confirm each claim in the PR/ticket description against the code. Note disagreements.
-- For an epic, map each PR to its files and its purpose (`gh pr diff --name-only`).
+- For an epic, map each PR to its files and its purpose (`gh pr diff <n> --name-only`).
 
 Capture the concrete `file:line` anchors as you go — you will cite them in the brief.
 
@@ -107,37 +129,57 @@ Capture the concrete `file:line` anchors as you go — you will cite them in the
 
 Write `pr_brief_<TICKET>.md` (or `pr_brief_<BRANCH>.md` when there is no ticket) to
 the repo root — pasteable into the PR description or a Jira comment, renders on GitHub.
-Structure, following README.md — omit any section that does not apply:
+
+**For a single PR / bug fix / epic-of-PRs**, follow `example-brief.md`'s shape —
+omit any section that does not apply:
 
 - **Title**: `TICKET — <one line: what it does and why>`.
+- **TLDR**: 1-2 sentences, the whole thing in miniature. A reader who stops here
+  should still know what happened and whether it's safe.
 - **Problem**: 2-4 sentences. The state of the world today and why it's inadequate.
   Ground it: cite the code that has the limitation.
-- **Fix**: the high-level shape of the solution in plain prose.
-- **Design sections** (as many as the change warrants), each a short titled prose
-  block. This is the body. Cover the non-obvious decisions and for each give the
-  *why*. Include a **"Key design"**-style section that names the rejected alternative
-  and says why it was rejected, whenever the change deliberately departs from the
-  existing pattern in the codebase.
+- **Fix**: the high-level shape of the solution, short and direct.
+- **Design sections** (only as many as the change actually warrants) covering the
+  non-obvious decisions and, for each, the *why*. Include a **"Key design"**-style
+  section that names the rejected alternative and says why it was rejected, whenever
+  the change deliberately departs from an existing pattern in the codebase.
 - **Open decisions**: anything undecided, who owns it, and what changes once decided.
 - **Data / control flow**: a short walkthrough of the end-to-end path when the change
   adds or reroutes one ("the user selects devices ... the researcher gives them to
-  the writer").
+  the writer"). A small diagram is fine here instead of prose if it's clearer.
+- **Impacts**: state a **Production impact level** and a **Development impact level**
+  (None / Low / Medium / High), each with one sentence of reasoning tied to which
+  code paths are touched — does this ship to prod, is it dev/eval tooling only, who
+  is affected. This section is mandatory, not optional.
 - **Blast radius**: what this touches, which existing behaviours change, the scale /
-  fan-out, and where the risk is concentrated. Be specific and quantify when you can.
+  fan-out, and where the risk is concentrated (can fold into Impacts for a small PR).
 - **PR breakdown** (only for an epic): one subsection per PR — its ticket, its files
-  (with a phrase on each), and what it changes.
+  (with a phrase on each), and what it changes. See the example's `PR 1 … PR 4`.
 
-Rules: prose over bullet-dumps; every design claim carries a `file:line`; English;
-no em dashes; no invented facts — if you didn't verify it, don't assert it (say
-"per the ticket" or omit). Match the register in README.md.
+**For a broader initiative / project** (a ticket describing a process or a body of
+work rather than one coded change), follow `example-brief-initiative.md`'s shape
+instead: Goal, TLDR, the process/flow itself, setup tasks, the concrete deliverables
+(bulleted), an **Impacts** section (same Production/Development impact levels as
+above), and Challenges/risks. Bullets are expected here, not a flaw.
+
+Rules either way: short and direct over comprehensive; bullets for lists of concrete
+things, prose only for the *why*; every design claim carries a `file:line` when code
+exists to point at; English; no em dashes; no invented facts — if you didn't verify
+it, don't assert it (say "per the ticket" or omit). Match the relevant example's
+register.
 
 Clean up the worktree.
 
-### 5. Render the HTML and open it
+### 5. Render a visual when it adds value
 
-Always do this — the markdown is the source of truth, the HTML is the reading view,
-and it gets it opened without asking. Generate a self-contained, styled
-single-page document from the same content and open it:
+The markdown file is the deliverable and is always produced. An HTML reading view
+(or another visual, e.g. a diagram/schema image) is worth generating **when it
+actually helps** — a longer brief that benefits from a light/dark reading page and
+section nav, an epic with several PRs, or a data/control flow that's genuinely
+clearer as a picture than a paragraph. For a short, simple brief, the markdown file
+alone is enough — don't generate HTML just because you can.
+
+When it's warranted:
 
 ```bash
 python3 ~/.claude/skills/pr-brief/generate_brief_html.py \
@@ -148,9 +190,10 @@ open pr_brief_<TICKET>.html      # macOS; use xdg-open on Linux
 
 The generator renders the markdown into a clean reading page with a light/dark toggle
 and a sticky section nav. If `open` is unavailable (headless / Linux without a
-browser), just report both paths instead.
+browser), just report the path instead.
 
-Then show the user both paths and a short summary of what the brief covers.
+Then show the user the markdown path (and the HTML path if you generated one) with
+a short summary of what the brief covers.
 
 ## Not this
 
