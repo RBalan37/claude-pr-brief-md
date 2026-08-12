@@ -10,6 +10,8 @@ production, and the blast radius. It is **not** a code review.
 
 ## Install
 
+**macOS / Linux:**
+
 ```bash
 git clone https://github.com/RBalan37/claude-pr-brief-md.git
 mkdir -p ~/.claude/skills/pr-brief
@@ -21,6 +23,20 @@ Or symlink so you edit in one place:
 ```bash
 ln -s "$(pwd)/claude-pr-brief-md" ~/.claude/skills/pr-brief
 ```
+
+**Windows:** Claude Code runs under WSL or Git Bash, where the commands above work
+unchanged — `~/.claude/skills/pr-brief` resolves the same way. Native PowerShell
+equivalent, if you're not using either:
+
+```powershell
+git clone https://github.com/RBalan37/claude-pr-brief-md.git
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.claude\skills\pr-brief"
+Copy-Item -Recurse -Force claude-pr-brief-md\* "$env:USERPROFILE\.claude\skills\pr-brief\"
+```
+
+One OS-specific detail inside the skill itself: step 5 opens the rendered HTML with
+`open` (macOS) or `xdg-open` (Linux). On Windows, use `start` instead, or just open
+the `.html` file from Explorer.
 
 ## Usage
 
