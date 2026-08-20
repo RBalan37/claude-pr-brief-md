@@ -1,98 +1,78 @@
-# AMVP-156149 — Store what we know about a device class, instead of re-deriving it every run
+# AMVP-158214 + AMVP-158302 — Trigger the AMS→RMS device sync from a scheduler, split across 2 PRs
 
-**TLDR:** I want to add a small persistent cache (`device_class_knowledge`) so the
-writer stops re-grouping and re-searching a device class from scratch on every run.
-Main things I want your take on: the TTL value, and whether the first write on a
-cache miss should be synchronous or queued.
+**TLDR**: The data path that pulls devices from AMS and upserts them into the RMS `device` table already exists end to end. What's missing is the trigger. This work adds a `DEVICE_SYNC` scheduler type so the existing RMS cron picks up a user's ASQ-based onboarding job and runs the sync on a schedule (e.g. every 8h). Split into 2 atomic PRs: PR 1 wires the trigger, PR 2 adds the creation endpoint.
 
-**Problem:** Today, whenever the writer needs to describe a device class (say, "smart
-thermostats"), it re-derives everything from scratch on every single run: it re-groups
-the raw device list in `device_grouper.py:21`, re-runs a web search for the category
-in `web_search.py:64-74`, and re-asks the model to summarize what it found. This is
-slow (the search alone adds 8-12s per class, per the timing logged around
-`web_search.py:64`), it's non-deterministic across runs, and it throws away work
-we've already paid for. There is no persistent notion of "what we know about smart
-thermostats" today — only a transient, per-run one.
+**Stacked on AMVP-158213** — this reuses `ams_query_service.get_devices`, which only exists on the `rodrigo.balan.AMVP-158213-endpoint-to-get-device` branch, not master. PR 1 branches off that branch. Merge order: 158213 → PR 1 (158214) → PR 2 (158302).
 
-**Proposed approach:** Introduce a `device_class_knowledge` table that stores a
-durable, versioned summary per device class, keyed on a normalized class name. The
-grouper and writer would both read from this table first and only fall back to the
-existing live-derivation path (grouping + search + summarize) on a cache miss, at
-which point they'd write the result back. A device class's knowledge would refresh on
-a TTL, not on every run. Nothing in `device_grouper.py:21` or `web_search.py:64-74`
-would change — only what happens before and after them.
+---
 
-## Storage shape, and why not just cache the search result
+## Problem
 
-My first instinct was to slap a cache in front of `web_search.py:64-74` and call it
-done. I'd set that aside: the search result isn't the thing we actually want to
-remember. What matters is the *distilled* knowledge — the summary the model produces
-after grouping and searching — not the raw search payload, which is noisy, sometimes
-empty (see `web_search.py:64-74`, which already turns a failed search into a default
-placeholder string and continues), and not reusable by the pipeline's other consumers
-(the writer needs the summary, not the search JSON). So instead I'd add a new table
-storing the finished summary plus the inputs that produced it (device list hash,
-search query, model version), so a cache hit is a guarantee of *equivalent output*,
-not just equivalent search.
+The ticket says: user clicks submit → get devices for those filters → check the internal table → add the ones that aren't there. When I traced this against the code, almost all of the *data path* already exists on the AMVP-158213 branch:
 
-## Key design, and why not model it like a playbook
+- Retrieval: `device_sync_service.run(tenant_id, tenant_name, asq)` streams devices via `tenant_api_dao.stream_devices` → `ams_query_service.get_devices` (the shared logic from AMVP-158213).
+- "Check if there, add if not": `device_dao.upsert` uses `INSERT ... ON CONFLICT (tenant_id, device_id) DO UPDATE` — already idempotent, so new devices are inserted and existing ones refreshed in one statement.
 
-`playbook_dao.py` already has a pattern for durable, versioned content: a playbook is
-written once and referenced by ID everywhere downstream (`playbook_dao.py:24`). The
-obvious move would be to model device class knowledge the same way — write it once,
-hand callers an ID. I'm proposing against that. Playbooks are authored and reviewed
-by a human before they're relied on; device class knowledge is machine-derived and
-needs to self-heal when it goes stale (a device class's public information changes —
-new certifications, a product recall, a firmware naming change) without a human in
-the loop. So instead of an immutable ID handed around, I'd look `device_class_knowledge`
-up by class name on every call, with the TTL check happening inside that lookup, not
-as a separate cron job. The tradeoff is an extra lookup per call versus playbook's
-zero-cost ID reference — I think that's worth it against the complexity of a
-background refresh job, but open to arguing the other way if you disagree.
+The real gap is that **nothing triggers `rms_device_sync_job`**. Its entry point `job.py` only runs when handed a `RunDeviceSyncRequest` flag manually, and the RMS scheduler cron (`rms_credential_rotation_scheduler_job/src/main.py`) only knows how to trigger entity-based `CHANGE_PASSWORD` rotations. `JobType` has a single value, `CHANGE_PASSWORD` (`rms_lib/enums/job_type.py`).
 
-## Grouping stays untouched, only its output would get cached
+---
 
-`device_grouper.py:21` would keep grouping raw devices into classes exactly as today
-— this proposal doesn't touch the grouping logic itself, only what happens after: the
-grouped class name becomes the cache key, and the grouper would check the table
-before deciding to kick off a search.
+## Overall approach
 
-## Open questions for reviewers
+Add `DEVICE_SYNC` as a second `JobType` and let the existing scheduler cron dispatch it. A `DEVICE_SYNC` scheduler carries the ASQ filter and `tenant_name` in its `configs` JSONB and, unlike a rotation scheduler, has **no `entity_ids`** — the whole point is to discover devices, not operate on a known list. Everything downstream (`device_sync_service.run`, `stream_devices`, `upsert`) is reused as-is.
 
-- **What should the TTL be?** I'd start with 7 days as a placeholder, but I don't have
-  a strong basis for that number. Does 7 days sound right for how often device class
-  info actually changes, or should this be configurable per class from the start?
-- **Synchronous or queued write-back on a cache miss?** Writing back synchronously is
-  simplest, but it means the caller who hits the miss eats the full 8-12s. Should the
-  first write instead go through a queue so no single caller pays for it? I don't have
-  a strong opinion here — wanted your read before I commit to one.
-- **Is a 7-day-stale description ever actually dangerous?** For most classes this is
-  invisible, but for one that just had a real-world change (a recall, a rebrand)
-  there's a window where we'd confidently report outdated info. Worth a shorter TTL
-  for specific categories, or is this an acceptable tradeoff everywhere?
+## PR breakdown
 
-## Data flow (proposed)
+| PR | Story | What it builds | Files it would touch | Why this order |
+|----|-------|----------------|----------------------|----------------|
+| PR 1 | AMVP-158214 | Backend trigger: `JobType.DEVICE_SYNC`, K8s dispatch helper, `_trigger_schedule` branch, a `Job` row per trigger | `rms_lib/enums/job_type.py`, `rms_credential_rotation_scheduler_job/src/main.py`, a K8s dispatch helper | Adds capability that isn't acionable yet — safe to merge alone |
+| PR 2 | AMVP-158302 | Creation endpoint: create a `Scheduler` with `job_type=device_sync`, ASQ + `tenant_name` in `configs`, crontab in `trigger`, ASQ validated on create | `rms_app_service` route + schema + service, `scheduler_dao.create_scheduler` | Only makes sense once the cron can process these schedulers |
 
-The writer would ask the grouper for a class's knowledge. The grouper normalizes the
-class name and checks `device_class_knowledge`. On a hit within TTL, it returns the
-stored summary directly to the writer. On a miss or stale hit, it falls through to
-the existing path: group the raw devices (`device_grouper.py:21`), run the web search
-(`web_search.py:64-74`), summarize, write the result back to the table, then return it
-to the writer. The writer's interface wouldn't change either way — it always gets a
-summary string back, never a cache-hit flag.
+**Atomicity:** after PR 1, master is consistent — the cron can process `DEVICE_SYNC` schedulers, but nothing creates them yet, so there is zero production impact. PR 2 makes it acionable, at which point the flow is complete end to end.
+
+---
+
+## Key design, and why not X
+
+**Reuse the `Scheduler` model with a new `job_type`, not a new sync-config table.**
+The `Scheduler` model already has everything needed: `trigger` (CRON/ONCE), `configs` JSONB, `status`, `last_triggered_at`, and the cron loop in `main.py:run` already reads active schedulers and evaluates `should_trigger`. A dedicated device-sync table would duplicate all of that scheduling machinery. The one wrinkle is that the current `_trigger_schedule` bails when `entity_ids` is empty (`main.py`, the "has no entity_ids" warning). DEVICE_SYNC legitimately has no entity_ids, so the branch must skip that guard rather than treat empty as an error.
+
+**Dispatch a K8s job, not run the sync inline in the scheduler process.**
+The scheduler cron is a short-lived job that fans out over many tenants with `asyncio.gather`. Running a full AMS pull (potentially tens of thousands of devices, paginated 1000 at a time) inline would block the whole cron pass. Dispatching `rms_device_sync_job` as its own K8s job is exactly what `group_processor` already does for the researcher and runner jobs (`group_processor._trigger_k8s_job`, `group_processor.py:311`), and it isolates each tenant's sync. This is the "job triggering a job" pattern.
+
+**Two-layer cadence — reuse it, don't add a second poller.**
+The cadence works in two layers, and the periodic "check AMS for new/updated devices" behaviour falls out of it for free:
+- Layer 1, the poller: `rms_credential_rotation_scheduler_job` already runs every 5 minutes (`scheduler_trigger._WINDOW_SECONDS = 5 * 60`), reads all active schedulers, and evaluates `should_trigger` for each.
+- Layer 2, each scheduler's own CRON: a device-sync scheduler stores a crontab like `0 */8 * * *` in `trigger`. The 5-minute poller checks whether that 8h schedule is due within the next window and only dispatches the sync when the 8h mark arrives (`scheduler_trigger.py` CRON branch).
+
+So the "every 8h re-sync from AMS" is just a device-sync `Scheduler` with an 8h crontab. No new cron, no new poller — the same 5-minute loop that drives rotations drives this.
+
+---
+
+## Data / control flow
+
+```
+PR 2: user submits onboarding job (ASQ + schedule)
+  → validate ASQ (ams_query_service.get_parameters), read tenant_name from X-ARMIS-TENANT-NAME
+  → create Scheduler { job_type: device_sync, trigger: { cron }, configs: { asq, tenant_name } }
+
+PR 1: rms_credential_rotation_scheduler_job (cron, every 5 min)
+  → get_active_schedulers → should_trigger? (evaluates each scheduler's crontab)
+  → _trigger_schedule:
+       job_type == device_sync?
+         → write one Job row (observability)
+         → build RunDeviceSyncRequest(tenant_id, tenant_name, asq from configs)
+         → dispatch rms_device_sync_job K8s job   (group_processor._trigger_k8s_job pattern)
+       else (change_password) → existing entity_ids / orchestrate_devices path (unchanged)
+
+existing: rms_device_sync_job (K8s)
+  → device_sync_service.run → stream_devices → ams_query_service.get_devices (AMS, paginated)
+  → device_dao.upsert  (INSERT ... ON CONFLICT → add new, refresh existing)
+```
+---
 
 ## Anticipated impact
 
-**Production impact level: Low.** This sits behind the existing grouper/writer
-interfaces — no caller-facing contract changes, and the fallback path is the exact
-code that runs today, so a bug in the new caching layer degrades to today's behaviour
-rather than breaking anything new. The risk that exists is entirely in staleness (see
-open questions above), not in availability.
+**Production impact: Medium (PR 1), Low (PR 2).** PR 1 touches the live scheduler cron (`rms_credential_rotation_scheduler_job`), which currently drives credential rotations. The change is additive (a new branch keyed on `job_type`) and the `CHANGE_PASSWORD` path stays byte-for-byte the same, but any regression in `_trigger_schedule` would affect rotations too, so the branching must be carefully isolated and tested. PR 2 is a new creation endpoint plus validation — it doesn't change existing behaviour. The sync job itself and `upsert` are unchanged throughout, so the retrieval/write risk is low.
 
-**Development impact level: Low.** One new table, one new write path. The only other
-consumer I know of today is the writer; a second consumer (the digest email job) is
-planned for next quarter and would get caching for free once this lands.
-
-I'd plan this as a single PR — the table, the read-through/write-back logic in the
-grouper, and tests for the TTL boundary — rather than splitting it, since it's small
-enough to review as one unit. Let me know if you'd rather see it split differently.
+**Development impact: Low to Medium.** No DB migration: `Scheduler.configs` is already JSONB and `job_type` is stored as `Text` (per `scheduler.py`), so a new value needs no schema change. The work is concentrated in one function in the scheduler cron plus a small K8s dispatch helper and the enum (PR 1), and a route/schema/service for creation (PR 2).
