@@ -1,6 +1,6 @@
 ---
 name: pr-brief
-description: Produce a short, direct design brief for a story or ticket — wherever it lives (Jira, GitHub Issues/Projects, Linear, Asana, ClickUp, Notion, or just pasted text) — written BEFORE the code change exists. A plain-language document that lays out the problem, the proposed approach, a handful of key design calls (each a stated decision with the alternative you set aside, not a question), and the anticipated impact across production, development, and deployment. Grounded in the current codebase (file:line where it genuinely helps) — where the change would land and what patterns already exist there — not in a diff, because there isn't one yet. Adapts to a single fix/feature, an epic planned across several PRs, or a broader initiative. Writes a markdown file and, only when a flow or split is genuinely clearer as a picture than a paragraph, renders one too. Use right after a story exists, when asked to "brief", "write up", "plan out", or "structure my thoughts on" a feature or fix before implementation starts. Tracker-agnostic by design so a whole team can share it. NOT a code review and NOT a description of a finished change.
+description: Produce a short, direct design brief for a story or ticket — wherever it lives (Jira, GitHub Issues/Projects, Linear, Asana, ClickUp, Notion, or just pasted text) — written BEFORE the code change exists. A plain-language document that lays out the problem, the proposed approach, a handful of key design calls (each a stated decision with the alternative you set aside, not a question), and the anticipated impact across production, development, and deployment. Grounded in the current codebase (file:line where it genuinely helps) — where the change would land and what patterns already exist there — not in a diff, because there isn't one yet. Adapts to a single fix/feature, work too big for one atomic PR (split across several, regardless of tracker labels), or a broader initiative. Writes a markdown file and, only when a flow or split is genuinely clearer as a picture than a paragraph, renders one too. Use right after a story exists, when asked to "brief", "write up", "plan out", or "structure my thoughts on" a feature or fix before implementation starts. Tracker-agnostic by design so a whole team can share it. NOT a code review and NOT a description of a finished change.
 allowed-tools: Bash, Read, Write, Grep, Glob, WebFetch, mcp__atlassian__*, mcp__linear__*, mcp__asana__*, mcp__notion__*, mcp__github__*
 argument-hint: "[ticket ID or URL | nothing = describe the story to me]"
 ---
@@ -60,10 +60,14 @@ impact.
 4. **States the anticipated impact on three axes**, every time: production,
    development, and — whenever the change touches env vars, secrets, feature flags,
    config, or a DB/infra migration — deployment. See below.
-5. **Adapts to the unit of work.** A single feature/fix gets one narrative. An epic
-   planned across PRs gets a PR breakdown table plus a merge-order / dependency note
-   when one PR stacks on another unmerged branch (see the example's "Stacked on
-   ACC-213" line). A broader initiative gets goal/process/impact framing instead.
+5. **Adapts to the unit of work.** A single feature/fix gets one narrative. Split
+   into a PR breakdown table when the actual scope — grounded in the codebase, not
+   in whether the tracker labels it an epic — doesn't fit into one atomic, reviewable
+   PR; a story tagged as an epic can still turn out to be one small PR once you trace
+   the code, and an untagged story can turn out to need a split. Add a merge-order /
+   dependency note when one PR stacks on another unmerged branch (see the example's
+   "Stacked on ACC-213" line). A broader initiative gets goal/process/impact framing
+   instead.
 6. **Plain language, English, short.** No machine-report tone, no em dashes, no
    jargon the story didn't already use. Write it the way you'd explain the plan to a
    teammate at a whiteboard — a handful of clear points, not an essay.
@@ -94,7 +98,8 @@ proceed.
 ### 2. Read the story
 
 Pull: summary, problem/acceptance criteria, type, and linked/sibling items — a parent
-epic or sibling stories are how you discover an epic-planned-across-PRs. If there's a
+epic or sibling stories are a signal the work might span multiple PRs, but the actual
+call still comes from reading the code in step 3, not from this label. If there's a
 parent epic, its description often holds the real problem statement worth pulling in.
 If a tool call fails or nothing is connected, ask the user to paste the text instead
 of stalling on it.
@@ -126,8 +131,13 @@ Then, for the area the story touches:
   that isn't true today (the way the example brief found the existing delete flow
   already built and only reversibility missing), say so — that reframes the whole
   scope.
-- **For an epic**, sketch how the work would split across PRs based on the existing
-  module boundaries, and note if one PR depends on a branch that isn't merged yet.
+- **Judge whether this is one PR or several — from the code, not the tracker.**
+  Would one PR, given the module boundaries and blast radius you're actually seeing,
+  still be atomic and reviewable in one sitting? If not, split along those existing
+  boundaries so each resulting PR is atomic on its own (mergeable independently,
+  leaves the default branch in a working state), and note if one PR depends on a
+  branch that isn't merged yet. Do this even if the tracker never called it an epic
+  — and don't split just because it's labeled one, if the actual change is small.
 
 Capture the `file:line` anchors that actually matter as you go — you'll cite them
 where they ground a claim, not everywhere.
@@ -147,9 +157,11 @@ titled sections, omit whatever doesn't apply:
   ("would add", "the plan is to"). If a multi-system or cross-PR flow is genuinely
   hard to narrate in prose, drop a small fenced-code-block diagram (arrows) in here
   — this is rare, not a section of its own, and most briefs skip it entirely.
-- **PR breakdown** (epics only): a table — PR, story, what it builds, files it would
-  touch, why this order — plus one line on atomicity (is master still consistent
-  after PR 1 alone).
+- **PR breakdown** (only when the change doesn't fit one atomic, reviewable PR —
+  a property of the code's actual size and blast radius, not of whether the tracker
+  calls it an epic): a table — PR, story, what it builds, files it would touch, why
+  this order — plus one line on atomicity: does each PR stand alone (mergeable by
+  itself, default branch stays consistent if it's the only one that lands)?
 - **Key design, and why not X**: one section, several bolded points inside it (not
   separate headers), each a decision you'd make plus the alternative you're setting
   aside and why. This is the section reviewers actually respond to.

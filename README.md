@@ -93,7 +93,7 @@ Send the markdown (or HTML) to reviewers before you start coding.
 4-6 titled sections total, prose within each — not a header per sub-point. See
 `templates/reference/` for full worked examples.
 
-**Single feature/fix, or an epic planned across PRs**
+**Single feature/fix, or work split across multiple atomic PRs**
 (`templates/reference/example-brief.md`, a worked example):
 
 | Section | What it covers |
@@ -101,7 +101,7 @@ Send the markdown (or HTML) to reviewers before you start coding.
 | **Title + TLDR** | One line on what you intend to do and why, then 1-2 sentences for the whole plan. A one-line dependency/stacking note if the work stacks on another unmerged branch. |
 | **Problem** | What the story says versus what's actually true in the code today. A few sentences, grounded where it matters. |
 | **Overall approach** | The proposed shape, short and direct, present/future tense. Rarely, a multi-system flow that's genuinely hard to narrate in prose gets a small inline diagram (fenced code block, arrows) here — not its own section. |
-| **PR breakdown** | *(Epics only)* Table: PR, story, what it builds, files, why this order — plus an atomicity note. |
+| **PR breakdown** | *(Only when the change doesn't fit one atomic, reviewable PR — judged from the codebase, not from whether the tracker calls it an epic)* Table: PR, story, what it builds, files, why this order — plus a note that each PR stands alone (mergeable by itself, default branch stays consistent). |
 | **Key design, and why not X** | One section, several bolded points inside it. Each states a decision and the alternative set aside — not a question. This is the section reviewers actually respond to. |
 | **Anticipated impact** | *(Mandatory)* Production impact, Development impact, and Deployment impact whenever env vars/config/flags/migrations are touched. |
 | **Open questions for reviewers** | *(Only if genuinely unresolved after asking the author directly.)* Short, never filler. Omit if there's nothing open. |
