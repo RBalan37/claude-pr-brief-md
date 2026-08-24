@@ -40,6 +40,20 @@ Once setup and baselines are in place:
   - Add structural info: table type, column (future), row, header.
 - 2nd experiment: **Finetune baseline run** -> train a model without train set balancing, and with a lower LR (1E-4 to 7E-5).
 
+## Stories / PR Breakdown
+
+| Story | What it builds | PR(s) | Depends on | Atomic? |
+|---|---|---|---|---|
+| Dataset hygiene | Removes hard/easy balancing, strips QA overlap from the finetuning train/val/test sets | 1 PR to the finetuning data pipeline | none | Yes, self-contained data prep, mergeable alone |
+| Prompt ID tracking | Generates a Prompt ID per run and logs it to MLFlow alongside the raw prompt text | 1 PR to the eval logging layer | none | Yes |
+| Baseline registration | Adds Aurora and Vista to the eval platform and runs the 4 baseline evals (both models x both test sets) | 1 PR to eval platform config | Dataset hygiene (needs clean test sets to produce valid baselines) | Yes on its own, but only mergeable after dataset hygiene lands |
+| Aurora prompt tuning | Adds the experiment harness plus the first two prompt variants (task explanation, structural info) | 1 PR for the harness, 1 PR per prompt variant after | Baseline registration (needs Aurora's baseline to compare against) | Yes, each variant PR stands alone once the harness PR is in |
+| Finetune baseline run | Adds a finetune config without train-set balancing, lower LR | 1 PR to the training config | Dataset hygiene | Yes |
+
+Dataset hygiene and Prompt ID tracking have no dependencies and can land in either
+order or in parallel; everything else stacks on dataset hygiene, and the Aurora
+prompt-tuning PRs stack on the harness PR landing first.
+
 ## Impacts
 
 Production impact Level - None

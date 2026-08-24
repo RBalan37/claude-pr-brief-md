@@ -29,7 +29,13 @@ overwhelmed by length, not impressed by it.
 
 `reference/example-brief-initiative.md` is the other shape: use it instead when the
 story describes a body of work or a process change rather than one feature or fix
-(Goal, TLDR, process, setup tasks, impact levels, challenges).
+(Goal, TLDR, process, setup tasks, a stories/PR breakdown, impact levels, challenges).
+Even here, whenever the initiative decomposes into discrete pieces of work, break it
+into the small stories or issues that make it up and map each to the PR(s) it would
+produce — same atomicity rule as the standard brief (each PR mergeable on its own,
+consistent, leaves the default branch working), except it's normal for an
+initiative's later stories to depend on earlier ones landing first, so say that
+dependency explicitly per row instead of treating it as a problem to design away.
 
 Both share the same non-negotiables: every claim grounded in the actual current code
 or story (not invented), the *why* and the *alternative you set aside* stated as a
@@ -83,7 +89,11 @@ more complete.
    the code, and an untagged story can turn out to need a split. Add a merge-order /
    dependency note when one PR stacks on another unmerged branch (see the example's
    "Stacked on ACC-213" line). A broader initiative gets goal/process/impact framing
-   instead.
+   instead, plus its own stories/PR breakdown: decompose the initiative into the small
+   stories or issues that make it up and map each to the PR(s) it would produce — each
+   PR still atomic, consistent, and independently mergeable, but here it's expected
+   that later stories depend on earlier ones landing, so state that per row rather
+   than leaving it implied.
 6. **Plain language, English, short.** No machine-report tone, no em dashes, no
    jargon the story didn't already use. Write it the way you'd explain the plan to a
    teammate at a whiteboard — a handful of clear points, not an essay.
@@ -201,6 +211,16 @@ titled sections, omit whatever doesn't apply:
 - **Open questions for reviewers**: only if something is genuinely unresolved after
   you asked the author directly (see point 3 above). Short — one or two real
   questions, never filler. Omit the section entirely if there's nothing open.
+
+For an initiative-shaped brief, use `reference/example-brief-initiative.md`'s section
+order instead (Goal, TLDR, process sections, Stories/PR breakdown, Impacts,
+Challenges). Its **Stories/PR breakdown** plays the same role as the standard
+brief's PR breakdown, one level up: a table — story/issue, what it builds, the PR(s)
+it maps to, what it depends on — plus a line confirming each PR is still atomic,
+consistent, and independently reviewable even though, unlike a single-feature split,
+it's normal here for a later story's PR to require an earlier one merged first. Only
+include it when the initiative actually decomposes into discrete pieces of work; a
+pure process/policy initiative with no code split can skip it.
 
 Rules: short over comprehensive; a handful of titled sections, prose within them, not
 a header per sub-point; `file:line` where it grounds a claim, not as a checkbox;
