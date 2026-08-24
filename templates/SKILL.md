@@ -36,6 +36,22 @@ or story (not invented), the *why* and the *alternative you set aside* stated as
 decision (not posed as a question), and an explicit, three-axis read on anticipated
 impact.
 
+**A thin ticket produces a thin brief — don't paper over it, ask.** This skill
+grounds the brief in two things: the story and the current code. It cannot invent a
+goal, a problem statement, or acceptance criteria that were never written down, and
+it must not guess at them and present the guess as fact. If the source ticket is
+just a title with an empty (or near-empty) description — no goal, no
+problem/acceptance criteria, no linked context — do not silently fill the gap and do
+not just announce that something is missing and move on. Ask the user specific,
+pertinent questions that target exactly what's missing (e.g. "what problem is this
+solving?", "what does done look like?", "who else is affected?") before you write
+anything, and write the brief from their answers plus the code. Producing a
+brief that guesses wrong is worse than pausing to ask. The real fix isn't a more
+elaborate brief, it's a better ticket: a title plus a goal/problem statement plus
+acceptance criteria is what turns a one-liner into a brief a reviewer can actually
+act on — say that to the user too when a ticket is this thin, so future ones come in
+more complete.
+
 ## What makes a brief good (the whole point)
 
 1. **Grounded in the real, current code — not assumptions.** A brief that only
@@ -103,6 +119,15 @@ call still comes from reading the code in step 3, not from this label. If there'
 parent epic, its description often holds the real problem statement worth pulling in.
 If a tool call fails or nothing is connected, ask the user to paste the text instead
 of stalling on it.
+
+If, after pulling the ticket, all you have is a title — no description, no goal, no
+acceptance criteria — do not silently fill that gap from the codebase alone and
+present it as if the ticket said so, and do not stop at just flagging that it's
+thin. Ask the user targeted questions that fill the specific gaps you found (what
+problem this solves, what done looks like, who's affected, any constraints) before
+you write the brief. Reading the code first (step 3) can sharpen those questions
+into concrete options — see point 3 below — but the answers still have to come from
+the user, not from an assumption you made and never checked.
 
 ### 3. Read the current codebase — context first, not a diff
 

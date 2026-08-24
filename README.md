@@ -81,6 +81,21 @@ python3 ~/.claude/skills/pr-brief/generate_brief_html.py \
 
 Send the markdown (or HTML) to reviewers before you start coding.
 
+### Ticket quality matters
+
+The brief is only as good as the ticket plus the code — Claude can't invent a goal,
+a problem statement, or acceptance criteria that were never written down, and it
+won't guess at them and pass the guess off as fact. If a ticket is just a title with
+no description, expect Claude to ask you specific questions to fill exactly what's
+missing (the problem it solves, what done looks like, who's affected) before it
+writes anything — not to flag the gap and move on, and not to produce a brief built
+on an assumption nobody confirmed. For a brief you can actually hand to reviewers
+with no back-and-forth, write tickets with at least:
+
+- a **title** (what),
+- a **goal or problem statement** (why), and
+- **acceptance criteria** (what "done" looks like).
+
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) installed
